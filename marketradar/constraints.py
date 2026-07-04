@@ -126,3 +126,21 @@ def enumerate_actions(sku: Dict[str, Any], signal) -> List[Action]:
 def split_feasible(actions: List[Action]):
     return ([a for a in actions if a.feasible],
             [a for a in actions if not a.feasible])
+
+
+def validate_feasible(feasible: List[Action], sku: Dict[str, Any]) -> List[str]:
+    """defense-in-depth: nothing feasible should ever break the two hard rules.
+
+    enumerate_actions already enforces these, so this should always come back
+    empty. we run it anyway on the chosen set to earn the eval badge and to
+    catch any future regression in the solver.
+    """
+    cover = weeks_cover(sku)
+    floor = sku["margin_floor_pct"]
+    violations: List[str] = []
+    for a in feasible:
+        if a.kind == "reprice_down" and a.params.get("new_margin", 1.0) < floor:
+            violations.append(f"{a.kind} sits below the {floor:.0%} margin floor")
+        if a.kind in ("promote", "reprice_down") and cover < MIN_COVER_WEEKS:
+            violations.append(f"{a.kind} pushes demand on {cover:.1f}wk of cover")
+    return violations
