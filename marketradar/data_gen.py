@@ -132,7 +132,9 @@ def _make_own_portfolio(rng: np.random.RandomState) -> Dict[str, List[Dict]]:
             cost = _base_price(spec) * (0.62 + rng.uniform(-0.03, 0.03))
             price = _base_price(spec) * (1.0 + rng.uniform(-0.02, 0.05))
             demand = int(rng.uniform(120, 340))
-            inventory = int(demand * rng.uniform(2.5, 9.0))
+            # healthy skus sit comfortably above the 3wk cover line; the one
+            # supply-constrained case is planted explicitly below.
+            inventory = int(demand * rng.uniform(4.0, 10.0))
             floor = 0.18
             skus.append(dict(
                 sku_id=f"{tenant.split('-')[0].upper()}-{i:02d}",
