@@ -1,0 +1,25 @@
+# MarketRadar — dependencies
+#
+# CORE (required — the full pipeline, evals, and tests run on these alone):
+numpy>=1.24
+pandas>=2.0
+scikit-learn>=1.3
+scipy>=1.10
+networkx>=3.0
+
+# UI (optional — only needed to run the Streamlit dashboard):
+streamlit>=1.30
+
+# OPEN-SOURCE ML MODELS (optional — auto-detected at runtime; if absent, the
+# pipeline transparently falls back to deterministic / sklearn backends and
+# still runs end-to-end). Install these to activate the real models:
+#   - sentence-transformers -> all-MiniLM-L6-v2 spec/review embeddings
+#   - transformers + torch  -> distilbert sentiment + flan-t5-base rationale
+#   - chromadb              -> vector store for the RAG aspect classifier
+sentence-transformers>=2.2
+transformers>=4.38
+torch>=2.0
+chromadb>=0.4
+
+# Test runner
+pytest>=7.0

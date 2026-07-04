@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# MarketRadar runtime artifacts
+runs/
+.streamlit/secrets.toml
+
+docs/
+
+# HuggingFace / model caches
+.cache/
+*.safetensors
+
+# OS
+.DS_Store
