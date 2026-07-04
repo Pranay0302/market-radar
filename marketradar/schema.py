@@ -93,6 +93,15 @@ def normalize_ram(raw: Any) -> int:
     return int(m.group(1)) if m else 0
 
 
+def _canon_num(name: str, val: Any) -> Any:
+    """Whole-number numerics -> int, so 14.0 (from pandas) == 14 (from us)."""
+    a = ATTR_BY_NAME.get(name)
+    if a and a.kind == "numeric" and val is not None:
+        f = float(val)
+        return int(f) if f.is_integer() else f
+    return val
+
+
 def normalize_listing(raw: Dict[str, Any]) -> Dict[str, Any]:
     """Canonicalize a raw competitor listing into a spec dict.
 
@@ -109,13 +118,13 @@ def normalize_listing(raw: Dict[str, Any]) -> Dict[str, Any]:
             val = raw[name]
             if name == "display_panel" and isinstance(val, str):
                 val = val.upper()
-            spec[name] = val
+            spec[name] = _canon_num(name, val)
     return spec
 
 
 def config_signature(spec: Dict[str, Any]) -> str:
     """A stable, name-independent identity for a configuration."""
-    return "|".join(f"{n}={spec.get(n)}" for n in ATTR_NAMES)
+    return "|".join(f"{n}={_canon_num(n, spec.get(n))}" for n in ATTR_NAMES)
 
 
 def spec_text(spec: Dict[str, Any]) -> str:
