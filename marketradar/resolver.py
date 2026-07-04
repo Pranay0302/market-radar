@@ -1,19 +1,19 @@
-"""Entity resolution: which of our SKUs does a competitor config map to?
+"""entity resolution: which of our skus does a competitor config map to?
 
-This is the hard requirement — the mapping has to survive a competitor renaming
-or restructuring its lineup. So we never look at the name. We score each
+this is the hard requirement. the mapping has to survive a competitor renaming
+or restructuring its lineup, so we never look at the name. we score each
 competitor config against each of our configs three ways and blend them:
 
   - structured similarity  (weighted attribute distance, schema.py)
-  - graph attribute overlap (Jaccard over the knowledge graph)
-  - embedding cosine        (spec text, MiniLM or TF-IDF)
+  - graph attribute overlap (jaccard over the knowledge graph)
+  - embedding cosine        (spec text, minilm or tf-idf)
 
-Structured similarity does most of the work; the graph and embedding scores act
+structured similarity does most of the work; the graph and embedding scores act
 as tie-breakers and give us something to show the user ("matched on these
 attributes").
 
-TODO: blend weights are hand-picked. Once we have labeled match data, learn them
-(and add a confidence threshold that flags "no good match" instead of forcing one).
+todo: blend weights are hand-picked. once we have labeled match data, learn them
+and add a confidence threshold that flags "no good match" instead of forcing one.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from . import graph as kg
 from .embedding import Embedder
 from .schema import CatalogStats, compute_stats, config_signature, similarity, spec_text
 
-# Blend weights. Structured match leads; the other two refine.
+# blend weights. structured match leads; the other two refine.
 W_STRUCT, W_JACCARD, W_EMBED = 0.6, 0.2, 0.2
 
 
@@ -45,7 +45,7 @@ class Match:
 @dataclass
 class ResolutionResult:
     matches: List[Match]
-    graph: Any                              # the networkx graph, for the UI
+    graph: Any                              # the networkx graph, for the ui
     by_competitor: Dict[str, Match]
 
     def own_for(self, competitor_sku: str) -> Optional[str]:
@@ -59,13 +59,13 @@ def _blend(struct: float, jac: float, emb: float) -> float:
 
 def resolve_one(spec: Dict[str, Any], own_skus: List[Dict[str, Any]],
                 stats: CatalogStats, embedder: Embedder) -> Dict[str, Any]:
-    """Best own SKU for a single spec. Handy for tests and one-off lookups."""
+    """best own sku for a single spec. handy for tests and one-off lookups."""
     comp_vec = embedder.encode([spec_text(spec)])
     best = None
     for sku in own_skus:
         struct = similarity(spec, sku["spec"], stats)
         emb = float(Embedder.cosine(comp_vec, embedder.encode([spec_text(sku["spec"])]))[0, 0])
-        # No graph here, so approximate overlap with the structured score.
+        # no graph here, so approximate the overlap with the structured score.
         score = _blend(struct, struct, emb)
         if best is None or score > best["score"]:
             best = dict(own_sku=sku["sku_id"], score=score, struct_sim=struct,
@@ -75,11 +75,11 @@ def resolve_one(spec: Dict[str, Any], own_skus: List[Dict[str, Any]],
 
 def resolve(own_skus: List[Dict[str, Any]],
             competitor_configs: List[Dict[str, Any]]) -> ResolutionResult:
-    """Resolve every competitor config to our closest own SKU."""
+    """resolve every competitor config to our closest own sku."""
     all_specs = [s["spec"] for s in own_skus] + [c["spec"] for c in competitor_configs]
     stats = compute_stats(all_specs)
 
-    # Fit the embedder once on every spec text (own + competitor).
+    # fit the embedder once on every spec text (own plus competitor).
     embedder = Embedder().fit([spec_text(s) for s in all_specs])
     own_texts = embedder.encode([spec_text(s["spec"]) for s in own_skus])
 

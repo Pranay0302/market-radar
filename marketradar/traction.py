@@ -1,17 +1,17 @@
-"""Traction detection: which competitor configs are winning, and on what.
+"""traction detection: which competitor configs are winning, and on what.
 
-Two parts:
+two parts:
 
-1. Per competitor SKU, look at its weekly sell-out. A config has "traction" if
-   units are trending up *while the price stays flat* — a real demand shift, not
-   a price cut. We measure the slope of units over weeks (normalized by average
-   volume) and check the price is in a tight band.
-2. Attribution: across all configs, which attribute *values* line up with the
-   rising ones? That's how we get "32GB + OLED is what's pulling", instead of
-   just "these SKUs are up".
+1. per competitor sku, look at its weekly sell-out. a config has "traction" if
+   units are trending up while the price stays flat, which is a real demand
+   shift and not a price cut. we measure the slope of units over weeks
+   (normalized by average volume) and check the price is in a tight band.
+2. attribution: across all configs, which attribute values line up with the
+   rising ones? that's how we get "32gb + oled is what's pulling" instead of
+   just "these skus are up".
 
-TODO: linear slope is fine for 12 weeks of clean synthetic data. Real feeds want
-seasonality handling and a significance test before we alert.
+todo: a linear slope is fine for 12 weeks of clean synthetic data. real feeds
+want seasonality handling and a significance test before we alert.
 """
 
 from __future__ import annotations
@@ -24,8 +24,8 @@ import pandas as pd
 
 from .schema import ATTR_NAMES, config_signature
 
-# Thresholds. Deliberately explicit so they're easy to tune / defend.
-PRICE_COV_MAX = 0.04     # price counts as "stable" under 4% coefficient of variation
+# thresholds. deliberately explicit so they're easy to tune and defend.
+PRICE_COV_MAX = 0.04     # price is "stable" under 4% coefficient of variation
 NORM_SLOPE_MIN = 0.02    # at least ~2% weekly volume growth
 R2_MIN = 0.30            # trend should be reasonably linear, not noise
 
@@ -48,7 +48,7 @@ def _spec_from_row(row: pd.Series) -> Dict[str, Any]:
 
 
 def _fit_trend(weeks: np.ndarray, units: np.ndarray) -> Tuple[float, float]:
-    """Return (normalized slope, R^2) of a straight-line fit."""
+    """return (normalized slope, r^2) of a straight-line fit."""
     if len(weeks) < 3 or units.mean() == 0:
         return 0.0, 0.0
     slope, intercept = np.polyfit(weeks, units, 1)
@@ -60,7 +60,7 @@ def _fit_trend(weeks: np.ndarray, units: np.ndarray) -> Tuple[float, float]:
 
 
 def _per_config(market: pd.DataFrame) -> List[Dict[str, Any]]:
-    """Roll the weekly market up to one record per competitor SKU."""
+    """roll the weekly market up to one record per competitor sku."""
     out = []
     for (brand, sku_id), g in market.groupby(["brand", "sku_id"]):
         g = g.sort_values("week")
@@ -78,7 +78,7 @@ def _per_config(market: pd.DataFrame) -> List[Dict[str, Any]]:
 
 
 def _attribution(configs: List[Dict[str, Any]]) -> Dict[Tuple[str, Any], float]:
-    """Average normalized slope per (attribute, value) — the lift table."""
+    """average normalized slope per (attribute, value), the lift table."""
     overall = np.mean([c["norm_slope"] for c in configs]) if configs else 0.0
     lift: Dict[Tuple[str, Any], float] = {}
     for name in ATTR_NAMES:
@@ -91,7 +91,7 @@ def _attribution(configs: List[Dict[str, Any]]) -> Dict[Tuple[str, Any], float]:
 
 
 def detect(market: pd.DataFrame) -> List[TractionSignal]:
-    """Find competitor configs with rising volume at a stable price."""
+    """find competitor configs with rising volume at a stable price."""
     configs = _per_config(market)
     lift = _attribution(configs)
 
@@ -100,7 +100,7 @@ def detect(market: pd.DataFrame) -> List[TractionSignal]:
         if (c["price_cov"] <= PRICE_COV_MAX
                 and c["norm_slope"] >= NORM_SLOPE_MIN
                 and c["r2"] >= R2_MIN):
-            # This config's own attributes, ranked by how much lift they carry.
+            # this config's own attributes, ranked by how much lift they carry.
             drivers = sorted(
                 ((name, c["spec"].get(name), lift[(name, c["spec"].get(name))])
                  for name in ATTR_NAMES),
@@ -118,7 +118,7 @@ def detect(market: pd.DataFrame) -> List[TractionSignal]:
 
 
 def market_drivers(market: pd.DataFrame, top: int = 4) -> List[Tuple[str, Any, float]]:
-    """The strongest attribute drivers market-wide — for the dashboard header."""
+    """the strongest attribute drivers market-wide, for the dashboard header."""
     configs = _per_config(market)
     lift = _attribution(configs)
     ranked = sorted(lift.items(), key=lambda kv: kv[1], reverse=True)

@@ -2,17 +2,18 @@
 
 An OEM-native commercial *action layer*. It turns configuration-level competitor
 moves into spec-mapped, constraint-checked recommendations for your own
-portfolio — not a price monitor, not a digital-shelf dashboard.
+portfolio. Not a price monitor, not a digital-shelf dashboard.
 
 ## What it does
 
 1. **Maps** a competitor config to your closest own SKU by spec, via a
-   knowledge-graph entity resolver — no name matching, so it survives renames.
+   knowledge-graph entity resolver that does no name matching, so it survives
+   renames.
 2. **Detects** which spec attributes are driving sell-out velocity at a stable
    price (e.g. 32GB + OLED).
 3. **Recommends** a constrained action (reprice / promote / hold), where the
-   margin and inventory math is done by a deterministic solver — the model only
-   writes the rationale.
+   margin and inventory math is done by a deterministic solver and the model
+   only writes the rationale.
 
 ## Quickstart
 

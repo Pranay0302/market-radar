@@ -1,18 +1,18 @@
-"""The portfolio as a knowledge graph.
+"""the portfolio as a knowledge graph.
 
-Nodes are SKUs, configs, and attribute values; edges connect a SKU to its config
+nodes are skus, configs, and attribute values; edges connect a sku to its config
 and a config to each of its attributes:
 
-    SKU --HAS_CONFIG--> Config --HAS_ATTRIBUTE--> Attribute
+    sku --has_config--> config --has_attribute--> attribute
 
-Entity resolution (resolver.py) then adds Config --RESOLVES_TO--> Config edges
-linking a competitor config to our closest own config. The whole point: the
+entity resolution (resolver.py) then adds config --resolves_to--> config edges
+linking a competitor config to our closest own config. the whole point: the
 graph is built from attributes, never names, so a rename doesn't touch it.
 
-We use networkx because it's zero-infra and the graph is small.
+we use networkx because it's zero-infra and the graph is small.
 
-TODO: for a real multi-tenant deployment this maps straight onto Neo4j — same
-node/edge shape, and the RESOLVES_TO lookup becomes a Cypher query.
+todo: for a real multi-tenant deployment this maps straight onto neo4j. same
+node/edge shape, and the resolves_to lookup becomes a cypher query.
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ def _add_config(g: nx.DiGraph, spec: Dict[str, Any]) -> Tuple:
 
 def build_graph(own_skus: List[Dict[str, Any]],
                 competitor_configs: List[Dict[str, Any]]) -> nx.DiGraph:
-    """Build the SKU/config/attribute graph for one tenant plus the market."""
+    """build the sku/config/attribute graph for one tenant plus the market."""
     g = nx.DiGraph()
     for sku in own_skus:
         cnode = _add_config(g, sku["spec"])
@@ -72,7 +72,7 @@ def build_graph(own_skus: List[Dict[str, Any]],
 
 
 def config_attrs(g: nx.DiGraph, sig: str) -> set:
-    """Attribute nodes hanging off a config — used for overlap scoring."""
+    """attribute nodes hanging off a config, used for overlap scoring."""
     cnode = config_node(sig)
     if cnode not in g:
         return set()
@@ -80,7 +80,7 @@ def config_attrs(g: nx.DiGraph, sig: str) -> set:
 
 
 def attribute_jaccard(g: nx.DiGraph, sig_a: str, sig_b: str) -> float:
-    """How much two configs' attribute sets overlap, straight off the graph."""
+    """how much two configs' attribute sets overlap, straight off the graph."""
     a, b = config_attrs(g, sig_a), config_attrs(g, sig_b)
     if not a and not b:
         return 0.0
@@ -94,6 +94,6 @@ def add_resolution(g: nx.DiGraph, comp_sig: str, own_sig: str,
 
 
 def shared_attribute_labels(g: nx.DiGraph, sig_a: str, sig_b: str) -> List[str]:
-    """Human labels for the attributes two configs share — nice for the UI."""
+    """human labels for the attributes two configs share, nice for the ui."""
     shared = config_attrs(g, sig_a) & config_attrs(g, sig_b)
     return [f"{n[1]}={n[2]}" for n in sorted(shared)]

@@ -1,18 +1,18 @@
-"""Fake data we can reason about — competitor market, our portfolio, reviews.
+"""fake data we can reason about: competitor market, our portfolio, reviews.
 
-Two signals are planted on purpose so the pipeline (and the tests) have a known
+two signals are planted on purpose so the pipeline (and the tests) have a known
 answer to check against:
 
-1. Restructure — the competitor "Nimbus" renames its whole line at week 7
-   (ProBook -> EliteLine, numbering reshuffled). The spec of each SKU doesn't
-   change, so name-matching breaks but spec resolution keeps working.
-2. Traction — configs that are both 32GB RAM and OLED show rising sell-out at a
+1. restructure: the competitor "nimbus" renames its whole line at week 7
+   (probook becomes eliteline, numbering reshuffled). the spec of each sku does
+   not change, so name-matching breaks but spec resolution keeps working.
+2. traction: configs that are both 32gb ram and oled show rising sell-out at a
    stable price; everything else stays flat.
 
-Seeded, so runs repeat.
+seeded, so runs repeat.
 
-TODO: this is a stand-in for real channel/distributor feeds. A real connector
-should land data in the same Dataset shape so nothing downstream changes.
+todo: this is a stand-in for real channel / distributor feeds. a real connector
+should land data in the same dataset shape so nothing downstream changes.
 """
 
 from __future__ import annotations
@@ -27,8 +27,8 @@ WEEKS = 12
 RESTRUCTURE_WEEK = 7
 GPU_RANK = {"integrated": 0, "rtx2000": 1, "rtx3000": 2, "rtx4000": 3}
 
-# --- Archetype configs (the universe of configurations) --------------------- #
-# WINNER = 32GB + OLED  (A1, A2, A5, A10).
+# --- archetype configs (the universe of configurations) --------------------- #
+# winner = 32gb + oled  (a1, a2, a5, a10).
 _ARCHETYPES: Dict[str, Dict[str, Any]] = {
     "A0":  dict(cpu_tier=7, cpu_family="Core Ultra 7", ram_gb=16, storage_gb=512,
                 gpu_class="integrated", display_in=14, display_panel="IPS",
@@ -79,21 +79,21 @@ def _base_price(spec: Dict[str, Any]) -> float:
                  + spec["ram_gb"] * 3 + spec["display_in"] * 18, -1)
 
 
-# Which competitor brands carry which archetypes.
+# which competitor brands carry which archetypes.
 _COMPETITOR_MAP = {
     "Nimbus": ["A1", "A2", "A4", "A7", "A10"],   # this brand restructures
     "Vertex": ["A0", "A5", "A8", "A11", "A3"],
     "Cirro":  ["A1", "A6", "A9", "A10", "A2"],
 }
 
-# Own portfolio per tenant (enterprise isolation demo uses two tenants).
+# own portfolio per tenant (the enterprise isolation demo uses two tenants).
 _OWN_MAP = {
     "acme-pc":   ["A0", "A1", "A3", "A4", "A6", "A7", "A9", "A10", "A11"],
     "globex-pc": ["A2", "A5", "A8", "A11"],
 }
 
 
-# --- Review vocabulary (for RAG few-shot aspect classification) -------------- #
+# --- review vocabulary (for the rag few-shot aspect classifier) ------------- #
 _ASPECT_VOCAB = {
     "display quality": ["screen", "OLED display", "colors", "vivid panel",
                         "brightness", "the display"],
@@ -114,7 +114,7 @@ _NEG = ["is disappointing", "feels mediocre", "is a weak point",
 
 @dataclass
 class Dataset:
-    own_portfolio: Dict[str, List[Dict[str, Any]]]  # tenant_id -> SKUs
+    own_portfolio: Dict[str, List[Dict[str, Any]]]  # tenant_id -> skus
     market: pd.DataFrame                            # competitor weekly timeseries
     reviews: List[Dict[str, Any]]                   # labeled review corpus
     archetypes: Dict[str, Dict[str, Any]]
@@ -143,14 +143,14 @@ def _make_own_portfolio(rng: np.random.RandomState) -> Dict[str, List[Dict]]:
                 margin_floor_pct=floor,
                 inventory_units=inventory, weekly_demand=demand,
             ))
-        # Plant two revealing commercial states in acme-pc's portfolio:
+        # plant two revealing commercial states in acme-pc's portfolio:
         if tenant == "acme-pc":
-            # A10 winner but supply-constrained (must NOT be pushed).
             for s in skus:
+                # a10 is a winner but supply-constrained, so it must not be pushed.
                 if s["archetype"] == "A10":
                     s["weekly_demand"] = 300
-                    s["inventory_units"] = 240          # < 1 week cover
-                # A4 sits right at the margin floor (no room to cut price).
+                    s["inventory_units"] = 240          # under one week of cover
+                # a4 sits right at the margin floor, so there is no room to cut price.
                 if s["archetype"] == "A4":
                     s["unit_cost"] = round(s["list_price"] * (1 - 0.18) - 1, 2)
         portfolios[tenant] = skus
@@ -169,7 +169,7 @@ def _make_market(rng: np.random.RandomState) -> pd.DataFrame:
             for w in range(1, WEEKS + 1):
                 units = base_units + slope * (w - 1) + rng.normal(0, base_units * 0.04)
                 price = price0 * (1 + rng.normal(0, 0.008))  # stable band
-                # Restructure: Nimbus renames its line at RESTRUCTURE_WEEK.
+                # restructure: nimbus renames its line at the restructure week.
                 if brand == "Nimbus" and w < RESTRUCTURE_WEEK:
                     model = f"Nimbus ProBook {14 + j}"
                 elif brand == "Nimbus":
@@ -208,7 +208,7 @@ def _make_reviews(rng: np.random.RandomState) -> List[Dict[str, Any]]:
         winner = _is_winner(spec)
         for _ in range(7):
             aspect = rng.choice(list(_ASPECT_VOCAB))
-            # Winners skew positive on display + portability (the "why").
+            # winners skew positive on display and portability (the "why").
             if winner and aspect in ("display quality", "portability"):
                 senti = "positive" if rng.uniform() < 0.9 else "negative"
             elif winner:
@@ -234,7 +234,7 @@ _CACHE: Dict[int, Dataset] = {}
 
 
 def generate(seed: int = 7) -> Dataset:
-    """Build the full synthetic dataset (cached per seed)."""
+    """build the full synthetic dataset (cached per seed)."""
     if seed in _CACHE:
         return _CACHE[seed]
     rng = np.random.RandomState(seed)
@@ -249,10 +249,10 @@ def generate(seed: int = 7) -> Dataset:
 
 
 def latest_competitor_configs(market: pd.DataFrame) -> List[Dict[str, Any]]:
-    """One canonical config per competitor SKU, from the most recent week.
+    """one canonical config per competitor sku, from the most recent week.
 
-    Runs the raw listing through the normalization / entity-extraction path so
-    resolution never depends on ``model_name``.
+    runs the raw listing through the normalization / entity-extraction path so
+    resolution never depends on model_name.
     """
     from .schema import ATTR_NAMES, normalize_listing
     latest = market[market["week"] == market["week"].max()]
