@@ -16,10 +16,15 @@ streamlit>=1.43
 #   - sentence-transformers -> all-MiniLM-L6-v2 spec/review embeddings
 #   - transformers + torch  -> distilbert sentiment + flan-t5-base rationale
 #   - chromadb              -> vector store for the RAG aspect classifier
-sentence-transformers>=2.2
-transformers>=4.38
-torch>=2.0
-chromadb>=0.4
+#
+# These are LEFT UNINSTALLED for deployment: torch + transformers alone exceed
+# the ~1GB memory/disk limit on hosts like Streamlit Community Cloud, and the
+# app runs fine on the fallbacks without them. Uncomment for local dev to
+# activate the real models (see requirements-ml.txt note below).
+# sentence-transformers>=2.2
+# transformers>=4.38
+# torch>=2.0
+# chromadb>=0.4
 
 # Test runner
 pytest>=7.0

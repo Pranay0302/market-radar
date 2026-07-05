@@ -1,0 +1,10 @@
+# Optional heavy ML models for LOCAL dev / self-hosted deploys with >1GB RAM.
+# NOT installed on Streamlit Community Cloud (would exceed the free-tier limit).
+# The app auto-detects these at runtime; without them it uses deterministic /
+# sklearn / lexicon fallbacks and still runs end-to-end.
+#
+# Install with:  pip install -r requirements.txt -r requirements-ml.txt
+sentence-transformers>=2.2
+transformers>=4.38
+torch>=2.0
+chromadb>=0.4
