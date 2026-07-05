@@ -93,36 +93,45 @@ html, body, [class*="css"] { font-family:-apple-system,"Inter",system-ui,sans-se
 """
 
 
-# Login screen: a full-bleed teal backdrop with a faint "market pulse" bar motif,
-# and a frosted glass sign-in card. The card IS the Streamlit form (its stable
-# data-testid is what we style), because widgets can't live inside injected HTML.
+# Login screen: a minimal, neutral sign-in card centered in the viewport on both
+# axes. The card IS the Streamlit form (its stable data-testid is what we style),
+# because widgets can't live inside injected HTML. Kept monochrome — no accent
+# color — so it reads calm and clean.
 LOGIN_CSS = """
 <style>
+[data-testid="stHeader"] { display: none; }
 [data-testid="stAppViewContainer"], .stApp {
-  background:
-    radial-gradient(1100px 520px at 50% -12%, rgba(45,212,191,0.22), transparent 60%),
-    repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 34px),
-    linear-gradient(135deg, #0f766e 0%, #0c4a45 55%, #082f2c 100%);
+  background: radial-gradient(1200px 720px at 50% -10%, #ffffff 0%, #f4f5f6 58%, #edeff0 100%);
 }
-[data-testid="stHeader"] { background: transparent; }
-.stApp .block-container { padding-top: 7vh; }
+/* center the sign-in card on both axes. stMain is the flex parent whose direct
+   child is the single block-container column, so we center that column. */
+.stApp [data-testid="stMain"] {
+  display: flex; align-items: center; justify-content: center; min-height: 100vh;
+}
+.stApp [data-testid="stMainBlockContainer"] {
+  width: 372px; max-width: calc(100vw - 2rem); padding: 0;
+}
 [data-testid="stForm"] {
-  max-width: 380px; margin: 3vh auto 0; padding: 34px 30px 26px;
-  background: rgba(255,255,255,0.94);
-  backdrop-filter: blur(14px) saturate(130%);
-  -webkit-backdrop-filter: blur(14px) saturate(130%);
-  border: 1px solid rgba(255,255,255,0.55); border-radius: 18px;
-  box-shadow: 0 24px 70px rgba(3,25,23,0.45);
+  width: 100%; padding: 34px 32px 30px;
+  background: #ffffff; border: 1px solid #ececec; border-radius: 16px;
+  box-shadow: 0 12px 44px rgba(15,20,25,0.08);
 }
-.mr-login-brand { font-size:1.55rem; font-weight:720; letter-spacing:-0.02em;
-  color:#0f766e; text-align:center; }
-.mr-login-tag { color:#6b7280; font-size:0.85rem; text-align:center; margin:2px 0 18px; }
+[data-testid="stForm"] input { border-radius: 8px !important; }
+/* drop the "Press Enter to submit form" hint under the inputs */
+[data-testid="stForm"] [data-testid="InputInstructions"] { display: none !important; }
+/* keep the focus ring monochrome (the app theme accent is teal) */
+[data-testid="stForm"] div[data-baseweb="input"]:focus-within {
+  border-color: #17201c !important; box-shadow: none !important;
+}
+.mr-login-brand { font-size:1.5rem; font-weight:700; letter-spacing:-0.02em;
+  color:#17201c; text-align:center; }
+.mr-login-tag { color:#6b7280; font-size:0.85rem; text-align:center; margin:3px 0 20px; }
 [data-testid="stForm"] label { font-size:0.78rem !important; color:#4b5563 !important;
   font-weight:600 !important; }
 [data-testid="stFormSubmitButton"] button {
-  width:100%; margin-top:10px; background:#0f766e; color:#fff; border:0;
-  border-radius:10px; padding:0.55rem 0; font-weight:650; }
-[data-testid="stFormSubmitButton"] button:hover { background:#0c645d; color:#fff; }
+  background:#17201c; color:#fff; border:0; border-radius:10px;
+  padding:0.5rem 0; font-weight:600; }
+[data-testid="stFormSubmitButton"] button:hover { background:#2a3630; color:#fff; }
 </style>
 """
 
@@ -144,7 +153,7 @@ def _render_login() -> None:
                     unsafe_allow_html=True)
         user = st.text_input("Username", placeholder="Username")
         pw = st.text_input("Password", type="password", placeholder="Password")
-        submitted = st.form_submit_button("Sign in")
+        submitted = st.form_submit_button("Sign in", use_container_width=True)
     if submitted:
         exp_user, exp_pass = _expected_credentials()
         if check_credentials(user, pw, exp_user, exp_pass):
