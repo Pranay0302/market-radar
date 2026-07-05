@@ -74,13 +74,19 @@ def resolve_one(spec: Dict[str, Any], own_skus: List[Dict[str, Any]],
 
 
 def resolve(own_skus: List[Dict[str, Any]],
-            competitor_configs: List[Dict[str, Any]]) -> ResolutionResult:
-    """resolve every competitor config to our closest own sku."""
+            competitor_configs: List[Dict[str, Any]],
+            embedder_pref: str = "tfidf") -> ResolutionResult:
+    """resolve every competitor config to our closest own sku.
+
+    embedder_pref picks the tie-break embedding: "tfidf" (cheap, offline) or
+    "minilm" (quality). structured distance leads either way, so this only
+    nudges close calls.
+    """
     all_specs = [s["spec"] for s in own_skus] + [c["spec"] for c in competitor_configs]
     stats = compute_stats(all_specs)
 
     # fit the embedder once on every spec text (own plus competitor).
-    embedder = Embedder().fit([spec_text(s) for s in all_specs])
+    embedder = Embedder(prefer=embedder_pref).fit([spec_text(s) for s in all_specs])
     own_texts = embedder.encode([spec_text(s["spec"]) for s in own_skus])
 
     g = kg.build_graph(own_skus, competitor_configs)

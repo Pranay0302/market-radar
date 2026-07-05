@@ -21,21 +21,29 @@ from .router import ModelRouter
 
 class RationaleGenerator:
     def __init__(self):
-        self.backend = "template"
-        self.model = "template"
-        self._pipe = None
+        self.model = "flan-t5-base"
+        self._tok = None
+        self._mdl = None
+        # only check that transformers imports here. the ~1gb model download is
+        # deferred to first use, so cheap mode never pays for a model it won't run.
         try:
-            from transformers import pipeline
-            self._pipe = pipeline("text2text-generation", model="google/flan-t5-base")
-            self.backend = "flan-t5"
-            self.model = "flan-t5-base"
+            import transformers  # noqa: F401
+            self._available = True
         except Exception:
-            # no transformers (or model download blocked). template it is.
-            self._pipe = None
+            self._available = False
 
     @property
     def available(self) -> bool:
-        return self._pipe is not None
+        return self._available
+
+    def _ensure_model(self):
+        # flan-t5 is seq2seq. transformers 5.x dropped the text2text pipeline
+        # task, so we load the model directly and call generate ourselves.
+        if self._mdl is None:
+            from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+            self._tok = AutoTokenizer.from_pretrained("google/flan-t5-base")
+            self._mdl = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base")
+        return self._tok, self._mdl
 
     def _template(self, ctx: Dict[str, Any]) -> str:
         drivers = " and ".join(ctx["drivers"]) or "its configuration"
@@ -46,26 +54,34 @@ class RationaleGenerator:
                 f"This respects your constraints ({ctx['constraints']}).")
 
     def _prompt(self, ctx: Dict[str, Any]) -> str:
+        # flowing text with no "Label:" markers, so flan-t5 rephrases instead of
+        # echoing the labels back.
         drivers = " and ".join(ctx["drivers"])
+        why = f" {ctx['why'][0].upper() + ctx['why'][1:]}." if ctx.get("why") else ""
         return (
-            "Write a two-sentence recommendation for a product line manager. "
-            "Be concrete and cite the numbers.\n"
-            f"Competitor move: {ctx['brand']} {ctx['competitor']} is gaining at a "
-            f"stable price on {drivers}.\n"
-            f"Why buyers like it: {ctx.get('why', 'n/a')}.\n"
-            f"Maps to our SKU: {ctx['own_sku']} ({ctx['own_model']}).\n"
-            f"Decision: {ctx['action']} ({ctx['numbers']}).\n"
-            f"Constraints respected: {ctx['constraints']}."
-        )
+            "Rewrite the following as one concise recommendation for a product "
+            f"manager. {ctx['brand']}'s {ctx['competitor']} is gaining share at a "
+            f"stable price on {drivers}.{why} It matches our {ctx['own_sku']}, so we "
+            f"should {ctx['action'].lower()}, which keeps us within {ctx['numbers']} "
+            f"and {ctx['constraints']}.")
 
     def generate(self, ctx: Dict[str, Any], router: ModelRouter) -> str:
         use = router.choose("rationale", "template", "flan-t5", self.available)
         t0 = time.time()
         if use == "flan-t5":
-            out = self._pipe(self._prompt(ctx), max_new_tokens=90)[0]["generated_text"]
-            text = out.strip()
+            try:
+                tok, mdl = self._ensure_model()
+                ids = tok(self._prompt(ctx), return_tensors="pt",
+                          truncation=True, max_length=512)
+                out = mdl.generate(**ids, max_new_tokens=140)
+                text = tok.decode(out[0], skip_special_tokens=True).strip()
+                if not text:                       # guard against an empty decode
+                    use, text = "template", self._template(ctx)
+            except Exception:
+                # download or inference failed. fall back so we still answer.
+                use, text = "template", self._template(ctx)
         else:
             text = self._template(ctx)
-        router.log("rationale", use, self.model if use == "flan-t5" else "template",
+        router.log("rationale", use, "flan-t5-base" if use == "flan-t5" else "template",
                    (time.time() - t0) * 1000)
         return text

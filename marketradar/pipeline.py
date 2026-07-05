@@ -30,6 +30,7 @@ class ScoredRecommendation:
     signal: traction.TractionSignal
     eval_badge: str                 # "PASS" or "FAIL"
     violations: List[str] = field(default_factory=list)
+    why_summary: Any = None         # sentiment.WhySummary, for the ui breakdown
 
 
 @dataclass
@@ -53,13 +54,17 @@ def run_pipeline(tenant_id: str = "acme-pc", mode: str = "cheap",
 
     cfgs = data_gen.latest_competitor_configs(ds.market)
     comp_by_sku = {c["sku_id"]: c for c in cfgs}
-    res = resolver.resolve(own, cfgs)
+
+    # cheap mode stays on tfidf (offline, instant); quality mode uses minilm.
+    pref = "minilm" if mode == "quality" else "tfidf"
+    res = resolver.resolve(own, cfgs, embedder_pref=pref)
 
     alerts = monitor.scan(ds.market)
     signals = traction.detect(ds.market)
 
     router = ModelRouter(mode)
-    clf = RagAspectClassifier(router).fit([r for r in ds.reviews if r["split"] == "train"])
+    clf = RagAspectClassifier(router, embedder_pref=pref).fit(
+        [r for r in ds.reviews if r["split"] == "train"])
     scorer = SentimentScorer()
     generator = RationaleGenerator()
     audit = AuditLog(tenant_id=tenant_id)
@@ -74,14 +79,14 @@ def run_pipeline(tenant_id: str = "acme-pc", mode: str = "cheap",
     scored: List[ScoredRecommendation] = []
     for own_id, sig in best_by_own.items():
         sku = next(s for s in own if s["sku_id"] == own_id)
-        why = sentiment.summarize(sig.config_sig, ds.reviews, clf, scorer, router).phrase
-        rec = recommend.recommend(sku, sig, comp_by_sku[sig.sku_id], why,
+        why = sentiment.summarize(sig.config_sig, ds.reviews, clf, scorer, router)
+        rec = recommend.recommend(sku, sig, comp_by_sku[sig.sku_id], why.phrase,
                                   generator, router)
         violations = constraints.validate_feasible(rec.ranked, sku)
         badge = "PASS" if not violations else "FAIL"
         scope.assert_isolated(tenant_id, [rec.own_sku])   # isolation check
         audit.record(tenant_id, rec, sig, badge, router.summary()["models_used"])
-        scored.append(ScoredRecommendation(rec, sig, badge, violations))
+        scored.append(ScoredRecommendation(rec, sig, badge, violations, why))
 
     scored.sort(key=lambda sr: sr.signal.norm_slope, reverse=True)
     return PipelineResult(

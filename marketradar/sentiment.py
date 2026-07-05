@@ -35,32 +35,41 @@ class SentimentScorer:
     """positive / negative, routed lexicon (cheap) vs distilbert (quality)."""
 
     def __init__(self):
-        self.backend = "lexicon"
-        self.model = "lexicon"
+        self.model = "distilbert-sst-2"
         self._pipe = None
+        # importable check only. the model itself loads lazily on first use.
         try:
+            import transformers  # noqa: F401
+            self._available = True
+        except Exception:
+            self._available = False
+
+    @property
+    def available(self) -> bool:
+        return self._available
+
+    def _ensure_pipe(self):
+        if self._pipe is None:
             from transformers import pipeline
             self._pipe = pipeline(
                 "sentiment-analysis",
                 model="distilbert-base-uncased-finetuned-sst-2-english")
-            self.model = "distilbert-sst-2"
-        except Exception:
-            self._pipe = None
-
-    @property
-    def available(self) -> bool:
-        return self._pipe is not None
+        return self._pipe
 
     def score(self, text: str, router: ModelRouter) -> str:
         use = router.choose("sentiment", "lexicon", "distilbert", self.available)
         t0 = time.time()
+        model = "lexicon"
         if use == "distilbert":
-            label = self._pipe(text)[0]["label"]
-            res = "positive" if label.upper().startswith("POS") else "negative"
+            try:
+                label = self._ensure_pipe()(text)[0]["label"]
+                res = "positive" if label.upper().startswith("POS") else "negative"
+                model = "distilbert-sst-2"
+            except Exception:
+                use, res = "lexicon", lexicon_polarity(text)
         else:
             res = lexicon_polarity(text)
-        router.log("sentiment", use, self.model if use == "distilbert" else "lexicon",
-                   (time.time() - t0) * 1000)
+        router.log("sentiment", use, model, (time.time() - t0) * 1000)
         return res
 
 

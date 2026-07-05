@@ -8,7 +8,7 @@ scipy>=1.10
 networkx>=3.0
 
 # UI (optional): only needed to run the Streamlit dashboard.
-streamlit>=1.30
+streamlit>=1.43
 
 # OPEN-SOURCE ML MODELS (optional): auto-detected at runtime. If absent, the
 # pipeline transparently falls back to deterministic / sklearn backends and

@@ -24,10 +24,11 @@ from .router import ModelRouter
 
 
 class RagAspectClassifier:
-    def __init__(self, router: ModelRouter, k: int = 5):
+    def __init__(self, router: ModelRouter, k: int = 5,
+                 embedder_pref: str = "tfidf"):
         self.router = router
         self.k = k
-        self.embedder = Embedder()
+        self.embedder = Embedder(prefer=embedder_pref)
         self.backend = "knn"
         self._labels: List[tuple] = []
         self._nn = None
