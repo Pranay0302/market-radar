@@ -65,11 +65,69 @@ html, body, [class*="css"] { font-family:-apple-system,"Inter",system-ui,sans-se
 .act.chosen .lab { font-weight:680; color:var(--accent); }
 .act .why { color:var(--muted); font-size:0.82rem; }
 .foot { color:var(--muted); font-size:0.78rem; }
+
+/* centered, informative "running the pipeline" state */
+@keyframes mr-spin { to { transform: rotate(360deg); } }
+@keyframes mr-fade { from { opacity:0; transform: translateY(4px); } to { opacity:1; transform:none; } }
+.mr-loading { display:flex; justify-content:center; padding:2.2rem 0 2.6rem; }
+.mr-load-card { width:100%; max-width:600px; border:1px solid var(--line);
+  border-radius:16px; padding:26px 30px 28px; background:#fbfbfa; text-align:center;
+  animation: mr-fade 0.25s ease both; }
+.mr-spinner { width:34px; height:34px; margin:0 auto 15px; border-radius:50%;
+  border:3px solid var(--accent-soft); border-top-color:var(--accent);
+  animation: mr-spin 0.85s linear infinite; }
+.mr-load-title { font-size:1.15rem; font-weight:680; color:var(--ink); letter-spacing:-0.01em; }
+.mr-load-sub { color:var(--muted); font-size:0.88rem; line-height:1.5; margin:5px auto 20px; max-width:460px; }
+.mr-facts { text-align:left; display:flex; flex-direction:column; gap:11px;
+  border-top:1px solid var(--line); padding-top:18px; }
+.mr-fact { display:flex; gap:12px; align-items:flex-start; }
+.mr-fact .n { flex:none; width:24px; height:24px; border-radius:7px; background:var(--accent-soft);
+  color:var(--accent); font-size:0.7rem; font-weight:700; display:flex; align-items:center;
+  justify-content:center; margin-top:1px; }
+.mr-fact .ft { display:flex; flex-direction:column; gap:1px; }
+.mr-fact .ft b { color:var(--ink); font-size:0.87rem; font-weight:650; }
+.mr-fact .ft span { color:var(--muted); font-size:0.82rem; line-height:1.45; }
 </style>
 """
 
 
-@st.cache_data(show_spinner="Running the pipeline...")
+# the pipeline stages, shown as steady "facts" while it runs so the wait
+# doubles as a tour of what the system is actually doing.
+_PIPELINE_FACTS = [
+    ("Resolve", "Each competitor configuration is matched to your nearest SKU by "
+     "structured specs, knowledge-graph overlap and embeddings — names are shown, "
+     "never matched on."),
+    ("Monitor", "Weeks of sell-out are scanned for line restructures and demand traction."),
+    ("Traction", "A model is flagged when it gains share while holding a stable price — "
+     "sell-out slope over price variation."),
+    ("Mine the why", "A retrieval classifier pulls labeled review snippets and distilbert "
+     "scores sentiment for each aspect buyers mention."),
+    ("Recommend", "A constraint solver ranks reprice / promote / reallocate under your "
+     "margin floor and weeks-of-cover."),
+    ("Explain & audit", "flan-t5 phrases the call in plain English and every decision is "
+     "appended to a tamper-evident log."),
+]
+
+
+def _loading_html(mode: str) -> str:
+    if mode == "quality":
+        sub = ("Quality mode is loading MiniLM, distilbert and flan-t5 to run locally. "
+               "The first run warms the models — after that every rerun is instant.")
+    else:
+        sub = ("Cheap mode runs entirely on deterministic sklearn, lexicon and template "
+               "backends — no model downloads, just the pipeline end to end.")
+    facts = "".join(
+        f"<div class='mr-fact'><span class='n'>{i:02d}</span>"
+        f"<span class='ft'><b>{html.escape(t)}</b><span>{html.escape(d)}</span></span></div>"
+        for i, (t, d) in enumerate(_PIPELINE_FACTS, 1))
+    return (f"<div class='mr-loading'><div class='mr-load-card'>"
+            f"<div class='mr-spinner'></div>"
+            f"<div class='mr-load-title'>Running the pipeline</div>"
+            f"<div class='mr-load-sub'>{html.escape(sub)}</div>"
+            f"<div class='mr-facts'>{facts}</div></div></div>")
+
+
+@st.cache_data(show_spinner=False)
 def _load(tenant: str, mode: str):
     return run_pipeline(tenant, mode)
 
@@ -198,8 +256,21 @@ st.markdown("<div class='mr-title'>MarketRadar</div>", unsafe_allow_html=True)
 st.markdown("<div class='mr-sub'>Competitor configuration moves, mapped to your "
             "portfolio and turned into constrained actions.</div>", unsafe_allow_html=True)
 
+# Centered, informative loading state while the (possibly model-heavy) pipeline
+# runs. Shown once per tenant/mode in a session: the first quality run warms the
+# models and takes a moment, so the card gives the user something steady to read;
+# repeat runs are cache hits and skip it to avoid a flash.
+_seen = st.session_state.setdefault("_computed", set())
+_slot = st.empty()
+if (tenant, mode) not in _seen:
+    _slot.markdown(_loading_html(mode), unsafe_allow_html=True)
+
 result = _load(tenant, mode)
 ds = _dataset()
+
+_slot.empty()
+_seen.add((tenant, mode))
+
 tract = [a for a in result.alerts if a.kind == "traction"]
 restr = [a for a in result.alerts if a.kind == "restructure"]
 passed = sum(1 for sr in result.recommendations if sr.eval_badge == "PASS")
