@@ -7,24 +7,27 @@ scikit-learn>=1.3
 scipy>=1.10
 networkx>=3.0
 
-# UI (optional): only needed to run the Streamlit dashboard.
+# UI: the Streamlit dashboard.
 streamlit>=1.43
 
-# OPEN-SOURCE ML MODELS (optional): auto-detected at runtime. If absent, the
-# pipeline transparently falls back to deterministic / sklearn backends and
-# still runs end-to-end. Install these to activate the real models:
+# OPEN-SOURCE ML MODELS: quality mode runs these locally (no API keys). All
+# three are torch models, so torch is required here, not optional:
 #   - sentence-transformers -> all-MiniLM-L6-v2 spec/review embeddings
 #   - transformers + torch  -> distilbert sentiment + flan-t5-base rationale
-#   - chromadb              -> vector store for the RAG aspect classifier
+# The pipeline still falls back to sklearn / lexicon / template backends if any
+# of these fail to load, so cheap mode and the tests never depend on them.
+sentence-transformers>=2.2
+transformers>=4.38
+torch>=2.0
+
+# NOTE: torchvision is deliberately NOT installed. transformers only needs it
+# for vision models we never touch. The Streamlit file watcher is disabled in
+# .streamlit/config.toml so it won't scan those vision modules and log
+# torchvision import errors.
 #
-# These are LEFT UNINSTALLED for deployment: torch + transformers alone exceed
-# the ~1GB memory/disk limit on hosts like Streamlit Community Cloud, and the
-# app runs fine on the fallbacks without them. Uncomment for local dev to
-# activate the real models (see requirements-ml.txt note below).
-# sentence-transformers>=2.2
-# transformers>=4.38
-# torch>=2.0
-# chromadb>=0.4
+# NOTE: chromadb is intentionally omitted. The RAG aspect classifier falls back
+# to a scikit-learn nearest-neighbour index over the same MiniLM embeddings,
+# which is lighter on memory and behaves identically for this dataset.
 
 # Test runner
 pytest>=7.0

@@ -14,9 +14,22 @@ this same generate(context) interface so nothing else changes.
 from __future__ import annotations
 
 import time
+from functools import lru_cache
 from typing import Any, Dict
 
 from .router import ModelRouter
+
+
+@lru_cache(maxsize=1)
+def _load_flan_t5():
+    """Load flan-t5-base (tokenizer + model) once per process and reuse it.
+
+    The ~1gb weights are the single biggest cost in quality mode, so caching
+    them here is what turns a repeated multi-second stall into a one-time load."""
+    from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+    tok = AutoTokenizer.from_pretrained("google/flan-t5-base")
+    mdl = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base")
+    return tok, mdl
 
 
 class RationaleGenerator:
@@ -40,9 +53,7 @@ class RationaleGenerator:
         # flan-t5 is seq2seq. transformers 5.x dropped the text2text pipeline
         # task, so we load the model directly and call generate ourselves.
         if self._mdl is None:
-            from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-            self._tok = AutoTokenizer.from_pretrained("google/flan-t5-base")
-            self._mdl = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base")
+            self._tok, self._mdl = _load_flan_t5()
         return self._tok, self._mdl
 
     def _template(self, ctx: Dict[str, Any]) -> str:

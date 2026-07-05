@@ -1,0 +1,17 @@
+# MarketRadar is a light, editorial layout. Pin the theme so it looks the same
+# regardless of the viewer's system / browser dark-mode setting.
+[theme]
+base = "light"
+primaryColor = "#0f766e"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f7f7f5"
+textColor = "#17201c"
+
+[server]
+# transformers 5.x ships hundreds of optional vision models whose "fast" image
+# processors import torchvision (which we don't install). Streamlit's source
+# file watcher imports every module it can to watch for edits, which would flood
+# the logs with torchvision ModuleNotFoundError tracebacks and slow startup. We
+# don't need source hot-reload on Streamlit Cloud (redeploys happen on git
+# push), so turn the watcher off.
+fileWatcherType = "none"

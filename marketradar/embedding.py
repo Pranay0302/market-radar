@@ -11,9 +11,21 @@ model on every run.
 from __future__ import annotations
 
 import time
+from functools import lru_cache
 from typing import List
 
 import numpy as np
+
+
+@lru_cache(maxsize=1)
+def _load_minilm():
+    """Load all-MiniLM-L6-v2 once per process and share it everywhere.
+
+    The resolver and the RAG classifier each build an Embedder, so without this
+    the model would load twice per run. Caching keeps a single copy in memory
+    and makes every rerun after the first instant."""
+    from sentence_transformers import SentenceTransformer
+    return SentenceTransformer("all-MiniLM-L6-v2")
 
 
 def _l2_normalize(mat: np.ndarray) -> np.ndarray:
@@ -34,8 +46,7 @@ class Embedder:
         if prefer == "minilm":
             t0 = time.time()
             try:
-                from sentence_transformers import SentenceTransformer
-                self._model = SentenceTransformer("all-MiniLM-L6-v2")
+                self._model = _load_minilm()
                 self.backend = "minilm"
                 self.model_name = "all-MiniLM-L6-v2"
             except Exception:

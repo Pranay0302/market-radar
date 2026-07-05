@@ -8,7 +8,9 @@ venv/
 
 # MarketRadar runtime artifacts
 runs/
-.streamlit/
+# Ignore only Streamlit secrets, NOT the whole folder -- config.toml holds the
+# theme + server settings and must be committed so it deploys to Streamlit Cloud.
+.streamlit/secrets.toml
 
 
 docs/

@@ -14,9 +14,19 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any, Dict, List, Tuple
 
 from .router import ModelRouter
+
+
+@lru_cache(maxsize=1)
+def _load_distilbert():
+    """Load the distilbert sst-2 sentiment pipeline once per process."""
+    from transformers import pipeline
+    return pipeline(
+        "sentiment-analysis",
+        model="distilbert-base-uncased-finetuned-sst-2-english")
 
 _POS_WORDS = {"excellent", "fantastic", "impressed", "highlight", "exceeded",
               "best", "love", "great"}
@@ -50,10 +60,7 @@ class SentimentScorer:
 
     def _ensure_pipe(self):
         if self._pipe is None:
-            from transformers import pipeline
-            self._pipe = pipeline(
-                "sentiment-analysis",
-                model="distilbert-base-uncased-finetuned-sst-2-english")
+            self._pipe = _load_distilbert()
         return self._pipe
 
     def score(self, text: str, router: ModelRouter) -> str:
