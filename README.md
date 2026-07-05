@@ -18,18 +18,22 @@ portfolio. Not a price monitor, not a digital-shelf dashboard.
 ## Quickstart
 
 ```bash
-pip install -r requirements.txt          # core deps are enough to run everything
+pip install -r requirements.txt          # includes the local quality-mode models
 
 python -m marketradar.pipeline --tenant acme-pc   # end-to-end demo (CLI)
 python -m marketradar.evals                        # recommendation-correctness evals
 pytest -q                                          # test suite
-streamlit run app.py                               # minimal dashboard
+streamlit run app.py                               # dashboard (deployable to Streamlit Cloud)
 ```
 
-The open-source ML models (MiniLM, distilbert, flan-t5, Chroma) are **optional**:
-if they aren't installed, MarketRadar falls back to sklearn / lexicon / template
-backends and still runs end-to-end. Install the optional lines in
-`requirements.txt` to switch the real models on.
+MarketRadar has a **quality** mode that runs three local open-source models —
+`all-MiniLM-L6-v2` (embeddings), `distilbert-sst-2` (sentiment) and
+`flan-t5-base` (rationale) — and a **cheap** mode that stays on sklearn / lexicon
+/ template fallbacks. The three models are torch-based and ship in
+`requirements.txt`; if any fail to load, the pipeline degrades to the fallbacks
+and still runs end-to-end, so the core and the tests never depend on them. The
+RAG aspect classifier runs on a scikit-learn nearest-neighbour index over the
+MiniLM embeddings (ChromaDB is a documented drop-in upgrade).
 
 ## Layout
 
