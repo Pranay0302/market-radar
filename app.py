@@ -17,8 +17,10 @@ import streamlit as st
 
 from marketradar import data_gen
 from marketradar.audit import AuditLog
+from marketradar.auth import DEFAULT_PASS, DEFAULT_USER, check_credentials
 from marketradar.constraints import margin_pct, weeks_cover
 from marketradar.pipeline import run_pipeline
+from marketradar.report import build_report_pdf
 
 st.set_page_config(page_title="MarketRadar", page_icon="•", layout="wide")
 
@@ -89,6 +91,67 @@ html, body, [class*="css"] { font-family:-apple-system,"Inter",system-ui,sans-se
 .mr-fact .ft span { color:var(--muted); font-size:0.82rem; line-height:1.45; }
 </style>
 """
+
+
+# Login screen: a full-bleed teal backdrop with a faint "market pulse" bar motif,
+# and a frosted glass sign-in card. The card IS the Streamlit form (its stable
+# data-testid is what we style), because widgets can't live inside injected HTML.
+LOGIN_CSS = """
+<style>
+[data-testid="stAppViewContainer"], .stApp {
+  background:
+    radial-gradient(1100px 520px at 50% -12%, rgba(45,212,191,0.22), transparent 60%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 34px),
+    linear-gradient(135deg, #0f766e 0%, #0c4a45 55%, #082f2c 100%);
+}
+[data-testid="stHeader"] { background: transparent; }
+.stApp .block-container { padding-top: 7vh; }
+[data-testid="stForm"] {
+  max-width: 380px; margin: 3vh auto 0; padding: 34px 30px 26px;
+  background: rgba(255,255,255,0.94);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  border: 1px solid rgba(255,255,255,0.55); border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(3,25,23,0.45);
+}
+.mr-login-brand { font-size:1.55rem; font-weight:720; letter-spacing:-0.02em;
+  color:#0f766e; text-align:center; }
+.mr-login-tag { color:#6b7280; font-size:0.85rem; text-align:center; margin:2px 0 18px; }
+[data-testid="stForm"] label { font-size:0.78rem !important; color:#4b5563 !important;
+  font-weight:600 !important; }
+[data-testid="stFormSubmitButton"] button {
+  width:100%; margin-top:10px; background:#0f766e; color:#fff; border:0;
+  border-radius:10px; padding:0.55rem 0; font-weight:650; }
+[data-testid="stFormSubmitButton"] button:hover { background:#0c645d; color:#fff; }
+</style>
+"""
+
+
+def _expected_credentials():
+    """let a deployment override the hardcoded pair via st.secrets [auth]."""
+    try:
+        auth = st.secrets.get("auth", {})
+        return (auth.get("user", DEFAULT_USER), auth.get("password", DEFAULT_PASS))
+    except Exception:
+        return (DEFAULT_USER, DEFAULT_PASS)
+
+
+def _render_login() -> None:
+    st.markdown(LOGIN_CSS, unsafe_allow_html=True)
+    with st.form("login_form"):
+        st.markdown("<div class='mr-login-brand'>MarketRadar</div>"
+                    "<div class='mr-login-tag'>OEM commercial action layer</div>",
+                    unsafe_allow_html=True)
+        user = st.text_input("Username", placeholder="Username")
+        pw = st.text_input("Password", type="password", placeholder="Password")
+        submitted = st.form_submit_button("Sign in")
+    if submitted:
+        exp_user, exp_pass = _expected_credentials()
+        if check_credentials(user, pw, exp_user, exp_pass):
+            st.session_state["authenticated"] = True
+            st.rerun()
+        else:
+            st.error("Incorrect username or password.")
 
 
 # the pipeline stages, shown as steady "facts" while it runs so the wait
@@ -240,6 +303,13 @@ def _detail(sr, result, ds, tenant):
     st.markdown(rows, unsafe_allow_html=True)
 
 
+# --- auth gate -------------------------------------------------------------- #
+# Everything below is the authenticated app. Until the user signs in we render
+# the login card and stop, so the pipeline never runs for an anonymous visitor.
+if not st.session_state.get("authenticated", False):
+    _render_login()
+    st.stop()
+
 # --- sidebar ---------------------------------------------------------------- #
 with st.sidebar:
     st.markdown("### MarketRadar")
@@ -247,8 +317,6 @@ with st.sidebar:
     tenant = st.selectbox("Tenant", ["acme-pc", "globex-pc"])
     mode = st.radio("Model routing", ["cheap", "quality"], horizontal=True,
                     help="quality loads MiniLM + distilbert + flan-t5 locally")
-    st.caption("Open-source models are optional. Without them the pipeline uses "
-               "sklearn / lexicon / template fallbacks and still runs.")
 
 # --- header ----------------------------------------------------------------- #
 st.markdown(CSS, unsafe_allow_html=True)
@@ -270,6 +338,24 @@ ds = _dataset()
 
 _slot.empty()
 _seen.add((tenant, mode))
+
+# --- sidebar: share + sign out (needs the computed result/ds) --------------- #
+with st.sidebar:
+    st.divider()
+    st.markdown("#### Share findings")
+    st.caption("Export this tenant's findings as a PDF to send to a client.")
+    prepared_for = st.text_input("Prepared for", placeholder="Client name",
+                                 help="Printed on the report cover.")
+    st.download_button(
+        "Download report (PDF)",
+        data=build_report_pdf(result, ds, tenant, prepared_for),
+        file_name=f"MarketRadar_{tenant}_report.pdf",
+        mime="application/pdf",
+        use_container_width=True)
+    st.divider()
+    if st.button("Sign out", use_container_width=True):
+        st.session_state["authenticated"] = False
+        st.rerun()
 
 tract = [a for a in result.alerts if a.kind == "traction"]
 restr = [a for a in result.alerts if a.kind == "restructure"]

@@ -10,10 +10,13 @@ networkx>=3.0
 # UI: the Streamlit dashboard.
 streamlit>=1.43
 
+# Reporting: the shareable client PDF (pure-python, no native deps -> cloud-safe).
+fpdf2>=2.7
+
 # OPEN-SOURCE ML MODELS: quality mode runs these locally (no API keys). All
 # three are torch models, so torch is required here, not optional:
 #   - sentence-transformers -> all-MiniLM-L6-v2 spec/review embeddings
-#   - transformers + torch  -> distilbert sentiment + flan-t5-base rationale
+#   - transformers + torch  -> distilbert sentiment + flan-t5-small rationale
 # The pipeline still falls back to sklearn / lexicon / template backends if any
 # of these fail to load, so cheap mode and the tests never depend on them.
 sentence-transformers>=2.2
