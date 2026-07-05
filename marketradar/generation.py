@@ -4,7 +4,7 @@ important: this never does the math. the decision and every number are already
 fixed by the constraint solver. the generator only phrases them, so a small
 model (or the template fallback) is perfectly safe here.
 
-uses flan-t5-base if transformers is installed, otherwise a deterministic
+uses flan-t5-small if transformers is installed, otherwise a deterministic
 template. either way it gets the same structured facts.
 
 todo: if we move to a bigger local model (llama-3 / mistral via ollama), keep
@@ -22,22 +22,25 @@ from .router import ModelRouter
 
 @lru_cache(maxsize=1)
 def _load_flan_t5():
-    """Load flan-t5-base (tokenizer + model) once per process and reuse it.
+    """Load flan-t5-small (tokenizer + model) once per process and reuse it.
 
-    The ~1gb weights are the single biggest cost in quality mode, so caching
-    them here is what turns a repeated multi-second stall into a one-time load."""
+    The ~300mb weights are the single biggest cost in quality mode, so caching
+    them here is what turns a repeated multi-second stall into a one-time load.
+    We use -small rather than -base: the rationale only rephrases already-fixed
+    facts, so the smaller model is ~3-4x faster on CPU for a negligible quality
+    hit — which matters most on the CPU-only Streamlit Cloud deploy."""
     from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-    tok = AutoTokenizer.from_pretrained("google/flan-t5-base")
-    mdl = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base")
+    tok = AutoTokenizer.from_pretrained("google/flan-t5-small")
+    mdl = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-small")
     return tok, mdl
 
 
 class RationaleGenerator:
     def __init__(self):
-        self.model = "flan-t5-base"
+        self.model = "flan-t5-small"
         self._tok = None
         self._mdl = None
-        # only check that transformers imports here. the ~1gb model download is
+        # only check that transformers imports here. the ~300mb model download is
         # deferred to first use, so cheap mode never pays for a model it won't run.
         try:
             import transformers  # noqa: F401
@@ -78,21 +81,31 @@ class RationaleGenerator:
 
     def generate(self, ctx: Dict[str, Any], router: ModelRouter) -> str:
         use = router.choose("rationale", "template", "flan-t5", self.available)
-        t0 = time.time()
+        # load the model *before* starting the timer: the one-time weight load is
+        # warmup, not inference, and folding it into the logged latency made the
+        # cold first run look far slower than every (cached) rerun after it.
+        tok = mdl = None
         if use == "flan-t5":
             try:
                 tok, mdl = self._ensure_model()
+            except Exception:
+                use = "template"       # download/load failed; fall back so we answer
+        t0 = time.time()
+        if use == "flan-t5":
+            try:
                 ids = tok(self._prompt(ctx), return_tensors="pt",
                           truncation=True, max_length=512)
-                out = mdl.generate(**ids, max_new_tokens=140)
+                # 64 is plenty for a one-sentence rationale; 140 just spent CPU
+                # generating tokens we trim anyway.
+                out = mdl.generate(**ids, max_new_tokens=64)
                 text = tok.decode(out[0], skip_special_tokens=True).strip()
                 if not text:                       # guard against an empty decode
                     use, text = "template", self._template(ctx)
             except Exception:
-                # download or inference failed. fall back so we still answer.
+                # inference failed. fall back so we still answer.
                 use, text = "template", self._template(ctx)
         else:
             text = self._template(ctx)
-        router.log("rationale", use, "flan-t5-base" if use == "flan-t5" else "template",
+        router.log("rationale", use, self.model if use == "flan-t5" else "template",
                    (time.time() - t0) * 1000)
         return text

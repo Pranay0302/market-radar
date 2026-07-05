@@ -65,11 +65,19 @@ class SentimentScorer:
 
     def score(self, text: str, router: ModelRouter) -> str:
         use = router.choose("sentiment", "lexicon", "distilbert", self.available)
+        # load the pipeline before the timer so the one-time model load isn't
+        # charged to the first review's inference latency.
+        pipe = None
+        if use == "distilbert":
+            try:
+                pipe = self._ensure_pipe()
+            except Exception:
+                use = "lexicon"        # load failed; fall back so we still score
         t0 = time.time()
         model = "lexicon"
         if use == "distilbert":
             try:
-                label = self._ensure_pipe()(text)[0]["label"]
+                label = pipe(text)[0]["label"]
                 res = "positive" if label.upper().startswith("POS") else "negative"
                 model = "distilbert-sst-2"
             except Exception:

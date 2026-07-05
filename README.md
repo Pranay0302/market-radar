@@ -28,7 +28,7 @@ streamlit run app.py                               # dashboard (deployable to St
 
 MarketRadar has a **quality** mode that runs three local open-source models —
 `all-MiniLM-L6-v2` (embeddings), `distilbert-sst-2` (sentiment) and
-`flan-t5-base` (rationale) — and a **cheap** mode that stays on sklearn / lexicon
+`flan-t5-small` (rationale) — and a **cheap** mode that stays on sklearn / lexicon
 / template fallbacks. The three models are torch-based and ship in
 `requirements.txt`; if any fail to load, the pipeline degrades to the fallbacks
 and still runs end-to-end, so the core and the tests never depend on them. The
