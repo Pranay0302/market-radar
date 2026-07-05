@@ -22,7 +22,7 @@ from marketradar.constraints import margin_pct, weeks_cover
 from marketradar.pipeline import run_pipeline
 from marketradar.report import build_report_pdf
 
-st.set_page_config(page_title="MarketRadar", page_icon="•", layout="wide")
+st.set_page_config(page_title="MarketRadar", page_icon="📈", layout="wide")
 
 CSS = """
 <style>
