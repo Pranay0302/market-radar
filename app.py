@@ -324,7 +324,7 @@ with st.sidebar:
     st.markdown("### MarketRadar")
     st.caption("OEM commercial action layer")
     tenant = st.selectbox("Tenant", ["acme-pc", "globex-pc"])
-    mode = st.radio("Model routing", ["cheap", "quality"], horizontal=True,
+    mode = st.radio("Model routing", ["cheap", "quality"], index=1, horizontal=True,
                     help="quality loads MiniLM + distilbert + flan-t5 locally")
 
 # --- header ----------------------------------------------------------------- #
